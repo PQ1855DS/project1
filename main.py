@@ -1,4 +1,5 @@
 import sys
+import csv
 from PyQt6.QtWidgets import (
     QApplication,
     QMainWindow,
@@ -15,10 +16,18 @@ class SimpleAudioPlayer(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Простой аудиоплеер")
-        self.setGeometry(800, 400, 100, 100)
+        self.setGeometry(0, 0, 400, 800)
+        # Создаём .csv файл
+        with open("status_log.csv", "w", encoding="utf-8", newline="") as state_file:
+            writer = csv.writer(state_file)
+            writer.writerow(["Номер действия", "Действие"])
+            self.action_counter = 0
+        with open("status_log.csv", "r", encoding="utf-8", newline="") as state_file:
+            reader = csv.reader(state_file)
+            self.rows = list(reader)
 
-        self.fileName = ""
-        self.vol = 1.0
+        self.file_name = ""
+        self.vol = 100.0
 
         # Создаем медиаплеер
         self.player = QMediaPlayer()
@@ -58,6 +67,14 @@ class SimpleAudioPlayer(QMainWindow):
         self.loudness_button.setText("Подтвердить")
 
     def play_audio(self):
+        """Воспроизведение или пауза при нажатии на кнопку"""
+
+        # Добавляем данные в .csv файл
+        self.rows.append([self.action_counter, "Начато воспроизведение"])
+        with open("status_log.csv", "w", encoding="utf-8", newline="") as state_file:
+            writer = csv.writer(state_file)
+            writer.writerows(self.rows)
+            self.action_counter += 1
         self.player.play()
 
         # Вписываем состояние файла в поле
@@ -67,29 +84,64 @@ class SimpleAudioPlayer(QMainWindow):
             self.song_status.setText("Выберите файл")
 
         # Устанавливаем начальное значение звука
-        if self.vol <= 100:
-            self.loudness.setText(f"{str(self.vol * 100)}%")
+        if self.vol < 100:
+            self.loudness.setText(f"{str(self.vol)}%")
         else:
             self.loudness.setText("100.0%")
 
     def open_music_file(self):
+        """Открытие файла через диалоговое окно"""
+
+        # Добавляем данные в .csv файл
+        self.rows.append([self.action_counter, "Открыт файл"])
+        with open("status_log.csv", "w", encoding="utf-8", newline="") as state_file:
+            writer = csv.writer(state_file)
+            writer.writerows(self.rows)
+            self.action_counter += 1
         # Получаем путь к файлу и сохраняем его в переменную
-        self.fileName = QFileDialog.getOpenFileName(self, "OpenFile")[0]
-        print(self.fileName)
+        self.file_name = QFileDialog.getOpenFileName(self, "OpenFile")[0]
 
         # Загружаем файл по сохранённому пути
-        self.player.setSource(QUrl.fromLocalFile(self.fileName))
+        self.player.setSource(QUrl.fromLocalFile(self.file_name))
+
+        if QMediaPlayer.isPlaying(self.player):
+            self.song_status.setText("Проигрывается")
+        else:
+            self.song_status.setText("На паузе")
 
     def change_loudness(self):
+        """Установка громкости на введённое значение"""
+
         # Получаем новое значение звука в процентах и изменяем громкость
-        self.vol = float(self.loudness.text())
+        try:
+            # Добавляем данные в .csv файл
+            self.rows.append([self.action_counter, "Изменена громкость"])
+            with open(
+                "status_log.csv", "w", encoding="utf-8", newline=""
+            ) as state_file:
+                writer = csv.writer(state_file)
+                writer.writerows(self.rows)
+                self.action_counter += 1
+            self.vol = float(self.loudness.text())
+        except ValueError:
+            # Добавляем данные в .csv файл
+            self.rows.append(
+                [self.action_counter, "Введено неверное значение громкости"]
+            )
+            with open(
+                "status_log.csv", "w", encoding="utf-8", newline=""
+            ) as state_file:
+                writer = csv.writer(state_file)
+                writer.writerows(self.rows)
+                self.action_counter += 1
         self.audio_output.setVolume(self.vol / 100)
 
         # Изменяем текст в поле для ввода звука
-        if self.vol <= 100:
+        if self.vol < 100:
             self.loudness.setText(f"{str(self.vol)}%")
         else:
             self.loudness.setText("100.0%")
+
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
